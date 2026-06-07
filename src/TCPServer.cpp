@@ -20,6 +20,7 @@
 #include "TCPServer.hpp"
 
 TCPServer::TCPServer(int port){
+
     port_ = port;
     start();
 };
@@ -32,6 +33,44 @@ int TCPServer::setupSocket(){
     
 
 };
+
+HTTPRequest TCPServer::parseHTTPRequest(const char* buffer){
+    // printf("Parsing HTTP Request");
+    HTTPRequest request;
+    int method_index = -1;
+    int route_index = -1;
+    for(int i = 0; i < BUFFER_SIZE; i++){
+        if (buffer[i] == ' '){
+            if (method_index == -1){
+                method_index = i;
+            }
+            else {
+                route_index = i;
+                break;
+            }
+        }
+        
+    }
+    std::string method;
+    std::string route;
+
+    for(int i = 0; i < route_index;i++){
+        if(i < method_index){
+            method += buffer[i];
+        }
+        else{
+            route += buffer[i];
+        }
+    }
+
+    printf("Method: %s\n", method.c_str());
+    printf("Route: %s\n", route.c_str());
+
+    request.method = method;
+    request.path = route;
+    return request;
+}
+
 
 int TCPServer::acceptClient(){
     while (true)
@@ -52,7 +91,7 @@ int TCPServer::acceptClient(){
 
         std::cout << "Client connected" << std::endl;
 
-        char buffer[1024];
+        char buffer[BUFFER_SIZE];
 
         int bytes_received =
             recv(
@@ -63,6 +102,9 @@ int TCPServer::acceptClient(){
 
         if (bytes_received > 0)
         {
+            printf("Received: %s\n", buffer);
+            printf("Echoing back to client...\n");
+            parseHTTPRequest(buffer);
             send(
                 client_fd,
                 buffer,
