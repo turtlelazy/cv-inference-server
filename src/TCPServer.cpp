@@ -34,7 +34,20 @@ int TCPServer::setupSocket(){
 
 };
 
-HTTPRequest TCPServer::parseHTTPRequest(const char* buffer){
+std::string TCPServer::parseResponseHTTP(HTTPResponse response){
+
+    std::string response_str = std::format(
+        "HTTP/1.1 {} {}\r\nContent-Type: text/plain\r\n",
+        response.code, response.status
+    );
+    response_str += std::format("Content-Length: {}\r\n\r\n{}", response.message.size(), response.message);
+    printf("Reponse String: %s\n", response_str.c_str());
+    return response_str;
+
+}
+
+HTTPRequest TCPServer::parseHTTPRequest(const char *buffer)
+{
     // printf("Parsing HTTP Request");
     HTTPRequest request;
     int method_index = -1;
@@ -71,7 +84,6 @@ HTTPRequest TCPServer::parseHTTPRequest(const char* buffer){
     return request;
 }
 
-
 int TCPServer::acceptClient(){
     while (true)
     {
@@ -92,7 +104,6 @@ int TCPServer::acceptClient(){
         std::cout << "Client connected" << std::endl;
 
         char buffer[BUFFER_SIZE];
-
         int bytes_received =
             recv(
                 client_fd,
@@ -104,11 +115,16 @@ int TCPServer::acceptClient(){
         {
             printf("Received: %s\n", buffer);
             printf("Echoing back to client...\n");
-            parseHTTPRequest(buffer);
+            HTTPRequest request = parseHTTPRequest(buffer);
+            HTTPResponse response = {"200", "OK", "Hello World!"};
+            std::string response_str = parseResponseHTTP(response);
+            const char *response_cstr = response_str.c_str();
+            
+            printf("Response: %s\n", response_cstr);
             send(
                 client_fd,
-                buffer,
-                bytes_received,
+                response_cstr,
+                response_str.size(),
                 0);
         }
 
