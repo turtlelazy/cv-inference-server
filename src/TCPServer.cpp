@@ -17,13 +17,14 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
+#include "HTTPTypes.hpp"
 #include "TCPServer.hpp"
 
-TCPServer::TCPServer(int port){
-
+TCPServer::TCPServer(int port, Router router){
+    router_ = router;
     port_ = port;
     start();
-};
+}
 
 TCPServer::~TCPServer(){
 
@@ -32,7 +33,7 @@ TCPServer::~TCPServer(){
 int TCPServer::setupSocket(){
     
 
-};
+}
 
 std::string TCPServer::parseResponseHTTP(HTTPResponse response){
 
@@ -71,7 +72,7 @@ HTTPRequest TCPServer::parseHTTPRequest(const char *buffer)
         if(i < method_index){
             method += buffer[i];
         }
-        else{
+        else if(i != method_index){
             route += buffer[i];
         }
     }
@@ -116,7 +117,8 @@ int TCPServer::acceptClient(){
             printf("Received: %s\n", buffer);
             printf("Echoing back to client...\n");
             HTTPRequest request = parseHTTPRequest(buffer);
-            HTTPResponse response = {"200", "OK", "Hello World!"};
+
+            HTTPResponse response = router_.handleRequest(request);
             std::string response_str = parseResponseHTTP(response);
             const char *response_cstr = response_str.c_str();
             

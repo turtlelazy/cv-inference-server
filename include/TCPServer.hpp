@@ -1,19 +1,9 @@
-
+#include "Router.hpp"
+#include "HTTPTypes.hpp"
 
 #ifndef TCPSERVER_HPP
 #define TCPSERVER_HPP
-struct HTTPRequest
-{
-    std::string method;
-    std::string path;
-};
 
-struct HTTPResponse
-{
-    std::string code;
-    std::string status;
-    std::string message;
-};
 
 class TCPServer{
 
@@ -23,11 +13,12 @@ class TCPServer{
         int setupSocket();
         int acceptClient();
         int BUFFER_SIZE = 1024;
+        Router router_;
         HTTPRequest parseHTTPRequest(const char* buffer);
         std::string parseResponseHTTP(HTTPResponse response);
 
     public:
-        TCPServer(int port);
+        TCPServer(int port, Router router);
         ~TCPServer();
         void start();
 };

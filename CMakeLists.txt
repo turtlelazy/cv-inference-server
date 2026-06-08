@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(cvserve
     src/main.cpp
     src/TCPServer.cpp
+    src/Router.cpp
 )
 
 target_include_directories(cvserve PRIVATE include)
