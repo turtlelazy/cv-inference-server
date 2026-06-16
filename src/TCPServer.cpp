@@ -20,18 +20,15 @@
 #include "HTTPTypes.hpp"
 #include "TCPServer.hpp"
 
-TCPServer::TCPServer(int port, Router router){
-    router_ = router;
-    port_ = port;
+TCPServer::TCPServer(int port, Router router, int thread_count)
+    : thread_pool_(thread_count),
+      router_(router),
+      port_(port)
+{
     start();
 }
 
 TCPServer::~TCPServer(){
-
-}
-
-int TCPServer::setupSocket(){
-    
 
 }
 
@@ -84,7 +81,37 @@ HTTPRequest TCPServer::parseHTTPRequest(const char *buffer)
     request.path = route;
     return request;
 }
+void TCPServer::acceptRequest(int client_fd){
+    std::cout << "Started Request;" << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(5)); // Test line
 
+    char buffer[BUFFER_SIZE];
+    int bytes_received =
+        recv(
+            client_fd,
+            buffer,
+            sizeof(buffer),
+            0);
+
+    if (bytes_received > 0)
+    {
+        printf("Received: %s\n", buffer);
+        printf("Echoing back to client...\n");
+        HTTPRequest request = parseHTTPRequest(buffer);
+
+        HTTPResponse response = router_.handleRequest(request);
+        std::string response_str = parseResponseHTTP(response);
+        const char *response_cstr = response_str.c_str();
+
+        printf("Response: %s\n", response_cstr);
+        send(
+            client_fd,
+            response_cstr,
+            response_str.size(),
+            0);
+    }
+    std::cout << "Finished Request;" << std::endl;
+}
 int TCPServer::acceptClient(){
     while (true)
     {
@@ -102,36 +129,20 @@ int TCPServer::acceptClient(){
             continue;
         }
 
-        std::cout << "Client connected" << std::endl;
+        std::cout << "Client connected;" << std::endl;
+        // Lambda expression queueing the response operation
+        thread_pool_.enqueue(
+            ([this, client_fd] () {
+                this->acceptRequest(client_fd);
+                close(client_fd);
+                std::cout << "Closed client;" << std::endl;
+            })
+        );
 
-        char buffer[BUFFER_SIZE];
-        int bytes_received =
-            recv(
-                client_fd,
-                buffer,
-                sizeof(buffer),
-                0);
+        std::cout << "Client queued;" << std::endl;
 
-        if (bytes_received > 0)
-        {
-            printf("Received: %s\n", buffer);
-            printf("Echoing back to client...\n");
-            HTTPRequest request = parseHTTPRequest(buffer);
-
-            HTTPResponse response = router_.handleRequest(request);
-            std::string response_str = parseResponseHTTP(response);
-            const char *response_cstr = response_str.c_str();
-            
-            printf("Response: %s\n", response_cstr);
-            send(
-                client_fd,
-                response_cstr,
-                response_str.size(),
-                0);
-        }
-
-        close(client_fd);
     }
+    return -1;
 };
 
 void TCPServer::start(){

@@ -14,6 +14,7 @@ int main()
     std::cout << "Server starting...";
     Router router;
     router.addPath("GET","/",get_main);
+    router.addPath("GET", "/test", get_main);
     TCPServer server(9000, router);
     server.start();
 

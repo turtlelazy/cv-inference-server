@@ -9,6 +9,7 @@ add_executable(cvserve
     src/main.cpp
     src/TCPServer.cpp
     src/Router.cpp
+    src/ThreadPool.cpp
 )
 
 target_include_directories(cvserve PRIVATE include)
