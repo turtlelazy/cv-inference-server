@@ -68,3 +68,6 @@ vcpkg_installed/
 Testing/
 .cache/
 /.vscode
+
+# Models too big, install via script
+models/
