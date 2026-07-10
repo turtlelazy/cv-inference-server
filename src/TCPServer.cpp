@@ -191,7 +191,7 @@ HTTPRequest TCPServer::parseHTTPRequest(int client_fd)
     {
         std::cout << key << ": " << value << std::endl;
     }
-    std::cout << "Body: " << std::string(request.body.begin(), request.body.end()) << std::endl;
+    // std::cout << "Body: " << std::string(request.body.begin(), request.body.end()) << std::endl;
 
     return request;
 }
