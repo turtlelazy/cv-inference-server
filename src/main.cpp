@@ -2,7 +2,9 @@
 #include "TCPServer.hpp"
 #include "Router.hpp"
 #include "HTTPTypes.hpp"
+#include "YOLODetector.hpp"
 
+#include <opencv2/opencv.hpp>
 
 HTTPResponse get_main(HTTPRequest req){
     HTTPResponse response = {"200","OK",""};
@@ -74,20 +76,75 @@ HTTPResponse save_image(HTTPRequest req)
     }
 
     out_file.close();
+    // Test if OpenCV can read the saved image
+    // cv::Mat image = cv::imread(filename);
+    cv::Mat image =
+        cv::imdecode(req.body, cv::IMREAD_COLOR);
+
+    if (image.empty())
+    {
+        std::cerr << "Failed to load image\n";
+    }
+    else
+    {
+        std::cout
+            << image.cols
+            << " x "
+            << image.rows
+            << std::endl;
+    }
 
     HTTPResponse response = {"200", "OK", "Image saved as " + filename};
     return response;
 }
 
+HTTPResponse detect(YOLODetector& detector, HTTPRequest req)
+{
+    // Placeholder for image detection logic
+    HTTPResponse response = {"200", "OK", "Detection not implemented yet"};
+    // Logic check to make sure 
+        // the body is not empty
+        // the content is an image format
+    if (
+        req.body.empty() || 
+        req.headers.find("Content-Type") == req.headers.end() || 
+        req.headers.at("Content-Type").find("image/") == std::string::npos
+    )
+
+    {
+        response.code = "400";
+        response.status = "Bad Request";
+        response.message = "Request body is empty";
+        return response;
+    }
+
+
+    // Directly read the image from the request body using OpenCV
+    cv::Mat image = cv::imdecode(req.body, cv::IMREAD_COLOR);
+    std::vector<Detection> result = detector.detect(image);
+
+    std::cout << "Detection result size: " << result.size() << std::endl;
+    response.message = detector.parseResults(result);
+    return response;
+}
+
 int main()
 {
-    std::cout << "Server starting...";
+    std::cout << "Server starting..." << std::endl;
     std::filesystem::create_directories("uploads");
+
+    std::cout << "Initializing YOLO Detector..." << std::endl;
+    YOLODetector detector("../models/yolov8n.onnx");
 
     Router router;
     router.addPath("GET","/",get_main);
     router.addPath("GET", "/test", get_main);
-    router.addPath("POST", "/detect", get_main);
+
+    // Lambda function to pass in the initialized YOLODetector instance to the detect function
+    router.addPath("POST", "/detect", [&detector](HTTPRequest req) {
+        return detect(detector, req);
+    });
+
     router.addPath("POST", "/save_image", save_image);
     TCPServer server(9000, router);
     server.start();
