@@ -9,12 +9,21 @@ HTTPResponse get_main(HTTPRequest req){
     return response;
 }
 
+HTTPResponse save_image(HTTPRequest req){
+    // need to enable passing of images in the request
+    // process image in memory
+    // return status
+    HTTPResponse response = {"200", "OK", ""};
+    return response;
+}
+
 int main()
 {
     std::cout << "Server starting...";
     Router router;
     router.addPath("GET","/",get_main);
     router.addPath("GET", "/test", get_main);
+    router.addPath("POST", "/detect", get_main);
     TCPServer server(9000, router);
     server.start();
 

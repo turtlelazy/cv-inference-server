@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <cstring>
+#include <sstream>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -20,6 +21,8 @@
 #include "HTTPTypes.hpp"
 #include "TCPServer.hpp"
 
+bool DEBUG = true;
+
 TCPServer::TCPServer(int port, Router router, int thread_count)
     : thread_pool_(thread_count),
       router_(router),
@@ -29,7 +32,10 @@ TCPServer::TCPServer(int port, Router router, int thread_count)
 }
 
 TCPServer::~TCPServer(){
-
+    if (sock_fd_ >= 0)
+    {
+        close(sock_fd_);
+    }
 }
 
 std::string TCPServer::parseResponseHTTP(HTTPResponse response){
@@ -39,79 +45,179 @@ std::string TCPServer::parseResponseHTTP(HTTPResponse response){
         response.code, response.status
     );
     response_str += std::format("Content-Length: {}\r\n\r\n{}", response.message.size(), response.message);
-    printf("Reponse String: %s\n", response_str.c_str());
     return response_str;
 
 }
 
-HTTPRequest TCPServer::parseHTTPRequest(const char *buffer)
+HTTPRequest TCPServer::parseHTTPRequest(int client_fd)
 {
-    // printf("Parsing HTTP Request");
     HTTPRequest request;
-    int method_index = -1;
-    int route_index = -1;
-    for(int i = 0; i < BUFFER_SIZE; i++){
-        if (buffer[i] == ' '){
-            if (method_index == -1){
-                method_index = i;
-            }
-            else {
-                route_index = i;
-                break;
-            }
-        }
-        
-    }
-    std::string method;
-    std::string route;
-
-    for(int i = 0; i < route_index;i++){
-        if(i < method_index){
-            method += buffer[i];
-        }
-        else if(i != method_index){
-            route += buffer[i];
-        }
-    }
-
-    printf("Method: %s\n", method.c_str());
-    printf("Route: %s\n", route.c_str());
-
-    request.method = method;
-    request.path = route;
-    return request;
-}
-void TCPServer::acceptRequest(int client_fd){
-    std::cout << "Started Request;" << std::endl;
-    std::this_thread::sleep_for(std::chrono::seconds(5)); // Test line
+    std::string header;
 
     char buffer[BUFFER_SIZE];
-    int bytes_received =
-        recv(
-            client_fd,
-            buffer,
-            sizeof(buffer),
-            0);
+    int bytes_received = recv(
+        client_fd,
+        buffer,
+        sizeof(buffer),
+        0
+    );
 
-    if (bytes_received > 0)
+    if (bytes_received < 0)
     {
-        printf("Received: %s\n", buffer);
-        printf("Echoing back to client...\n");
-        HTTPRequest request = parseHTTPRequest(buffer);
-
-        HTTPResponse response = router_.handleRequest(request);
-        std::string response_str = parseResponseHTTP(response);
-        const char *response_cstr = response_str.c_str();
-
-        printf("Response: %s\n", response_cstr);
-        send(
-            client_fd,
-            response_cstr,
-            response_str.size(),
-            0);
+        perror("recv");
+        throw std::runtime_error("Failed to receive request header");
     }
+
+    // Data chunk processing for in-memory processing
+
+    // Extracts the header including \r\n\r\n
+    size_t i = 0;
+    while (!check_last_four(header))
+    {
+        // Loop in case header is larger than buffer size
+        if (i >= bytes_received)
+        {
+            bytes_received = recv(
+                client_fd,
+                buffer,
+                sizeof(buffer),
+                0);
+
+            if (bytes_received <= 0)
+            {
+                throw std::runtime_error("Failed to receive request header");
+            }
+
+            i = 0;
+        }
+
+        header.append(1, buffer[i]);
+        i++;
+    }
+    // Reached end of header; parsing header
+
+    size_t pos = header.find("Content-Length:");
+    request.headers["Content-Length"] = "0"; // Default to 0 if not found
+    std::istringstream stream(header);
+    std::string line;
+    std::getline(stream, line);
+
+    if (!line.empty() && line.back() == '\r')
+    {
+        line.pop_back();
+    }
+
+    std::istringstream request_line(line);
+
+    request_line >> request.method >> request.path;
+
+    // Parse headers
+    while (std::getline(stream, line))
+    {
+        if (line == "\r" || line.empty())
+        {
+            break;
+        }
+
+        if (!line.empty() && line.back() == '\r')
+        {
+            line.pop_back();
+        }
+
+        size_t colon = line.find(':');
+
+        if (colon == std::string::npos)
+        {
+            continue;
+        }
+
+        std::string key =
+            line.substr(0, colon);
+
+        std::string value =
+            line.substr(colon + 1);
+
+        while (!value.empty() && value.front() == ' ')
+        {
+            value.erase(value.begin());
+        }
+
+        request.headers[key] = value;
+    }
+
+    int content_length = std::stoi(request.headers["Content-Length"]);
+    bool has_chunked_transfer = header.find("Transfer-Encoding: chunked") != std::string::npos;
+    if (has_chunked_transfer)
+    {
+        std::cout << "Chunked transfer encoding not supported" << std::endl;
+        // Throw error
+        throw std::runtime_error("Chunked transfer encoding not supported");
+    }
+
+    // Receive body chunks if necessary
+    int body_bytes_read = 0;
+    while (body_bytes_read < content_length)
+    {
+        if (i >= bytes_received)
+        {
+            bytes_received = recv(
+                client_fd,
+                buffer,
+                sizeof(buffer),
+                0);
+
+            if (bytes_received <= 0)
+            {
+                throw std::runtime_error("Failed to receive request body");
+            }
+
+            i = 0;
+        }
+
+        if (bytes_received <= 0)
+        {
+            perror("recv");
+            break;
+        }
+
+        request.body.push_back(buffer[i]);
+        i++;
+        body_bytes_read++;
+    }
+
+    std::cout << "Parsed Request: " << request.method << " " << request.path << std::endl;
+    std::cout << "Headers: " << std::endl;
+    for (const auto& [key, value] : request.headers)
+    {
+        std::cout << key << ": " << value << std::endl;
+    }
+    std::cout << "Body: " << std::string(request.body.begin(), request.body.end()) << std::endl;
+
+    return request;
+}
+
+void TCPServer::acceptRequest(int client_fd){
+    std::cout << "Started Request;" << std::endl;
+    // std::this_thread::sleep_for(std::chrono::seconds(5)); // Test line
+
+    // Request parsing variables
+    HTTPRequest request = parseHTTPRequest(client_fd);
+
+    HTTPResponse response = router_.handleRequest(request);
+
+    std::string response_str = parseResponseHTTP(response);
+    const char *response_cstr = response_str.c_str();
+
+    printf("Response: %s\n", response_cstr);
+    send(
+        client_fd,
+        response_cstr,
+        response_str.size(),
+        0
+    );
     std::cout << "Finished Request;" << std::endl;
 }
+
 int TCPServer::acceptClient(){
     while (true)
     {
@@ -169,3 +275,8 @@ void TCPServer::start(){
     acceptClient();
 
 }
+
+bool TCPServer::check_last_four(const std::string &head)
+{
+    return head.size() >= 4 && (head[head.size() - 1] == '\n' && head[head.size() - 3] == '\n' && head[head.size() - 2] == '\r' && head[head.size() - 4] == '\r');
+};

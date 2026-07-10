@@ -19,9 +19,10 @@ class TCPServer{
         Router router_;
         ThreadPool thread_pool_;
 
-        HTTPRequest parseHTTPRequest(const char* buffer);
+        HTTPRequest parseHTTPRequest(int client_fd);
         std::string parseResponseHTTP(HTTPResponse response);
-
+        bool check_last_four(const std::string &head);
+    
     public:
         TCPServer(int port, Router router, int thread_count = 20);
         ~TCPServer();
