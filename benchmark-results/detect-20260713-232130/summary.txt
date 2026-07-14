@@ -1,0 +1,23 @@
+Comparison run: 20260713-232130
+Results directory: /Users/ishraqmahid/Desktop/Coding_Stuff/Messing Around/cv-inference-server/benchmark-results/detect-20260713-232130
+Trials per benchmark: 1
+Requests per run: 500
+Concurrent requests: 20
+
+C++ benchmark:
+startup: trials=1 avg=1436.00 median=1436.00 min=1436.00 max=1436.00
+sequential wall time: trials=1 avg=39646.00 median=39646.00 min=39646.00 max=39646.00
+sequential throughput: trials=1 avg=12.61 median=12.61 min=12.61 max=12.61
+concurrent wall time: trials=1 avg=25799.00 median=25799.00 min=25799.00 max=25799.00
+concurrent throughput: trials=1 avg=19.38 median=19.38 min=19.38 max=19.38
+
+Python benchmark:
+startup: trials=1 avg=2207.00 median=2207.00 min=2207.00 max=2207.00
+sequential wall time: trials=1 avg=42757.00 median=42757.00 min=42757.00 max=42757.00
+sequential throughput: trials=1 avg=11.69 median=11.69 min=11.69 max=11.69
+concurrent wall time: trials=1 avg=45333.00 median=45333.00 min=45333.00 max=45333.00
+concurrent throughput: trials=1 avg=11.03 median=11.03 min=11.03 max=11.03
+
+Logs:
+  /Users/ishraqmahid/Desktop/Coding_Stuff/Messing Around/cv-inference-server/benchmark-results/detect-20260713-232130/cpp-benchmark.log
+  /Users/ishraqmahid/Desktop/Coding_Stuff/Messing Around/cv-inference-server/benchmark-results/detect-20260713-232130/python-benchmark.log

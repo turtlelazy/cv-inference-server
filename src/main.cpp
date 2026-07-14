@@ -146,7 +146,7 @@ int main()
     });
 
     router.addPath("POST", "/save_image", save_image);
-    TCPServer server(9000, router);
+    TCPServer server(9000, router, 8);
     server.start();
 
     return -1;
